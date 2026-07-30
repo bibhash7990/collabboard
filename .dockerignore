@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example
+coverage
+.vscode
+.idea
+exports
+tmp

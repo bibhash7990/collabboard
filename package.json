@@ -1,0 +1,34 @@
+{
+  "name": "collabboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Collaborative Real-Time Whiteboard & Meeting Notes Platform",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @collabboard/server\" \"npm run dev -w @collabboard/web\"",
+    "dev:server": "npm run dev -w @collabboard/server",
+    "dev:web": "npm run dev -w @collabboard/web",
+    "build": "npm run build -w @collabboard/server && npm run build -w @collabboard/web",
+    "test": "npm run test -w @collabboard/server",
+    "test:web": "npm run test -w @collabboard/web",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "typecheck": "npm run typecheck -w @collabboard/server && npm run typecheck -w @collabboard/web",
+    "seed": "npm run seed -w @collabboard/server",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down -v"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}
