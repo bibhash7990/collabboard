@@ -2,7 +2,8 @@ import { pino } from 'pino';
 import { env, isProd, isTest } from './env';
 
 export const logger = pino({
-  level: isTest ? 'silent' : isProd ? 'info' : 'debug',
+  // LOG_LEVEL always wins (handy for surfacing errors in otherwise-silent tests).
+  level: process.env.LOG_LEVEL ?? (isTest ? 'silent' : isProd ? 'info' : 'debug'),
   transport: isProd
     ? undefined
     : { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:HH:MM:ss' } },

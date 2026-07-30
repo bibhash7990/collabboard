@@ -14,7 +14,6 @@ export default defineConfig({
     // isolation would re-register Mongoose models (OverwriteModelError).
     isolate: false,
     fileParallelism: false,
-    globalSetup: ['./tests/helpers/globalSetup.ts'],
     setupFiles: ['./tests/helpers/setup.ts'],
   },
   resolve: {
