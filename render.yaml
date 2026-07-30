@@ -44,11 +44,11 @@ services:
       #   https://collabboard.onrender.com   (or whatever Render assigns)
       - key: CLIENT_URL
         sync: false
-      # ── Email (Brevo SMTP). HOST/PORT are safe to store; the rest are entered
-      #    on blueprint sync so no credentials live in the repo. EMAIL_FROM must be
-      #    a sender you've VERIFIED in Brevo (Senders & Domains).
+      # ── Email (Gmail SMTP). HOST/PORT are safe to store; the rest are entered on
+      #    blueprint sync so no credentials live in the repo. SMTP_PASS is a Google
+      #    App Password (not the account password); SMTP_USER = EMAIL_FROM = the Gmail.
       - key: SMTP_HOST
-        value: smtp-relay.brevo.com
+        value: smtp.gmail.com
       - key: SMTP_PORT
         value: '587'
       - key: SMTP_USER
