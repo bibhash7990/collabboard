@@ -22,14 +22,17 @@ conflict-free CRDT core that survives offline edits and scales horizontally.
 
 ## 🎥 Demo
 
+> **🔗 Live app:** **https://collabboard-3qtp.onrender.com** — sign in with `alice@demo.dev` / `Password123!`
+> _(free tier; the first request after ~15 min idle takes ~30–50 s to wake up.)_
+>
 > **Loom walkthrough:** _<!-- paste your Loom/YouTube link here -->_ `https://www.loom.com/share/<id>`
 
 | Dashboard | Board (canvas + notes) | Presence & sharing |
 |---|---|---|
 | _screenshot placeholder_ | _screenshot placeholder_ | _screenshot placeholder_ |
 
-Try it locally in one command: [`docker compose up --build`](#-quickstart) → open http://localhost:8080
-and sign in with the [seeded demo accounts](#-demo-credentials).
+Demo accounts (all password `Password123!`): `alice@demo.dev` (owner), `bob@demo.dev` (editor),
+`carol@demo.dev` (viewer). Or run locally with [`docker compose up --build`](#-quickstart) → http://localhost:8080.
 
 ---
 
