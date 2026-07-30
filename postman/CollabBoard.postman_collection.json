@@ -1,0 +1,703 @@
+{
+  "info": {
+    "_postman_id": "c0113b0a-0000-4a00-9000-collabboard01",
+    "name": "CollabBoard API",
+    "description": "End-to-end REST collection for the CollabBoard server (BUILD_SPEC §3). Auth is Bearer at the collection level; Register/Login capture the access token into {{accessToken}} and later requests chain {{workspaceId}}, {{boardId}}, {{snapshotId}}, {{shareToken}} automatically. Refresh relies on the httpOnly cookie the runner keeps in its cookie jar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "demoEmail", "value": "" },
+    { "key": "demoPassword", "value": "Password123!" },
+    { "key": "demoName", "value": "Demo User" },
+    { "key": "userId", "value": "" },
+    { "key": "workspaceId", "value": "" },
+    { "key": "boardId", "value": "" },
+    { "key": "snapshotId", "value": "" },
+    { "key": "shareToken", "value": "" },
+    { "key": "shareLinkId", "value": "" },
+    { "key": "inviteToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('demoEmail')) {",
+                  "  pm.collectionVariables.set('demoEmail', 'demo_' + Date.now() + '@collabboard.dev');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('registered', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "if (res && res.accessToken) { pm.collectionVariables.set('accessToken', res.accessToken); }",
+                  "if (res && res.user && res.user.id) { pm.collectionVariables.set('userId', res.user.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"password\": \"{{demoPassword}}\",\n  \"name\": \"{{demoName}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('logged in', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "if (res && res.accessToken) { pm.collectionVariables.set('accessToken', res.accessToken); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('refreshed', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "if (res && res.accessToken) { pm.collectionVariables.set('accessToken', res.accessToken); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Uses the refresh cookie kept in the runner's cookie jar; returns a fresh access token."
+          }
+        },
+        {
+          "name": "Resend Verification",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/resend-verification",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "resend-verification"]
+            }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"paste-token-from-dev-email-console\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-email"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Revokes the refresh token and clears the cookie (204)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workspaces",
+      "item": [
+        {
+          "name": "List Workspaces",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.workspaces && res.workspaces.length) {",
+                  "  pm.collectionVariables.set('workspaceId', res.workspaces[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workspaces"]
+            }
+          }
+        },
+        {
+          "name": "Create Workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.workspace && res.workspace.id) {",
+                  "  pm.collectionVariables.set('workspaceId', res.workspace.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Product Design\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workspaces"]
+            }
+          }
+        },
+        {
+          "name": "Get Workspace",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workspaces", "{{workspaceId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Workspace",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Product Design (renamed)\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workspaces", "{{workspaceId}}"]
+            }
+          }
+        },
+        {
+          "name": "Workspace Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workspaces", "{{workspaceId}}", "members"]
+            }
+          }
+        },
+        {
+          "name": "Invite to Workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.invitation && res.invitation.id) {",
+                  "  pm.collectionVariables.set('invitationId', res.invitation.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teammate@collabboard.dev\",\n  \"role\": \"editor\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workspaces", "{{workspaceId}}", "invitations"]
+            }
+          }
+        },
+        {
+          "name": "Delete Workspace",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workspaces", "{{workspaceId}}"]
+            },
+            "description": "Owner-only. Cascades memberships + boards."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Boards",
+      "item": [
+        {
+          "name": "Create Board",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.board && res.board.id) {",
+                  "  pm.collectionVariables.set('boardId', res.board.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"title\": \"Sprint Planning\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards"]
+            }
+          }
+        },
+        {
+          "name": "List Boards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/boards?workspaceId={{workspaceId}}&sort=updated&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards"],
+              "query": [
+                { "key": "workspaceId", "value": "{{workspaceId}}" },
+                { "key": "sort", "value": "updated" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "q", "value": "sprint", "disabled": true },
+                { "key": "starred", "value": "true", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Board",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Board",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sprint Planning (Q3)\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}"]
+            }
+          }
+        },
+        {
+          "name": "Star Board",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"starred\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/star",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "star"]
+            }
+          }
+        },
+        {
+          "name": "Board Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "members"]
+            }
+          }
+        },
+        {
+          "name": "Invite to Board",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teammate@collabboard.dev\",\n  \"role\": \"viewer\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "invitations"]
+            }
+          }
+        },
+        {
+          "name": "Export Board PDF",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionItems\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/export/pdf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "export", "pdf"]
+            },
+            "description": "Streams an application/pdf meeting summary."
+          }
+        },
+        {
+          "name": "Delete Board",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}"]
+            },
+            "description": "Owner-only. Cascades memberships, note, ops, snapshots, share links."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Snapshots",
+      "item": [
+        {
+          "name": "List Snapshots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/snapshots",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "snapshots"]
+            }
+          }
+        },
+        {
+          "name": "Create Snapshot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.snapshotId) {",
+                  "  pm.collectionVariables.set('snapshotId', res.snapshotId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Before restructure\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/snapshots",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "snapshots"]
+            }
+          }
+        },
+        {
+          "name": "Restore Snapshot",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"snapshotId\": \"{{snapshotId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/snapshots/restore",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "snapshots", "restore"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Share",
+      "item": [
+        {
+          "name": "List Share Links",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/share",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "share"]
+            }
+          }
+        },
+        {
+          "name": "Create Share Link",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.link) {",
+                  "  if (res.link.token) pm.collectionVariables.set('shareToken', res.link.token);",
+                  "  if (res.link.id) pm.collectionVariables.set('shareLinkId', res.link.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ttlDays\": 7\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/share",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "share"]
+            }
+          }
+        },
+        {
+          "name": "Revoke Share Link",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/share/{{shareLinkId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "share", "{{shareLinkId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "Generate Action Items",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Alice will ship the export by Friday. Bob to review the RBAC matrix.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/boards/{{boardId}}/ai/action-items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "boards", "{{boardId}}", "ai", "action-items"]
+            },
+            "description": "Omit text to extract from the board's current notes."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invitations",
+      "item": [
+        {
+          "name": "Preview Invitation",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invitations/{{inviteToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invitations", "{{inviteToken}}"]
+            },
+            "description": "Public preview of a pending invitation (join workspace/board name)."
+          }
+        },
+        {
+          "name": "Accept Invitation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{inviteToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/invitations/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invitations", "accept"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Get Public Board",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/boards/{{shareToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "public", "boards", "{{shareToken}}"]
+            },
+            "description": "No auth. Resolves a share token to a read-only board snapshot."
+          }
+        }
+      ]
+    }
+  ]
+}
