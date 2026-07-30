@@ -4,16 +4,18 @@ import { durationToMs } from '../../utils/tokens';
 
 /**
  * The refresh token never touches JS on the client — it rides in an httpOnly
- * cookie so an XSS payload can't read it. `sameSite: 'lax'` keeps it off
- * cross-site requests while still surviving top-level navigations. Both helpers
- * share one options object so set/clear can't drift (a mismatched path/domain
- * would leave a stale cookie the browser refuses to overwrite).
+ * cookie so an XSS payload can't read it. SameSite is configurable: 'lax' for a
+ * same-origin deploy, 'none' when the frontend lives on another domain (browsers
+ * then require Secure=true). Both helpers share one options object so set/clear
+ * can't drift (a mismatched path/domain would leave a stale cookie the browser
+ * refuses to overwrite).
  */
 const baseCookieOptions = {
   httpOnly: true,
-  sameSite: 'lax' as const,
-  secure: env.COOKIE_SECURE,
-  domain: env.COOKIE_DOMAIN,
+  sameSite: env.COOKIE_SAMESITE,
+  // SameSite=None is invalid without Secure — force it on so prod never silently drops the cookie.
+  secure: env.COOKIE_SECURE || env.COOKIE_SAMESITE === 'none',
+  domain: env.COOKIE_DOMAIN || undefined,
   path: '/',
 };
 

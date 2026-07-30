@@ -1,0 +1,54 @@
+# Render Blueprint — provisions the whole backend in one shot.
+# New → Blueprint → connect this repo. Render reads this file and creates:
+#   • collabboard        — the web service (API + WebSocket + served SPA), Docker
+#   • collabboard-redis  — a Key Value (Redis) instance for the Socket.IO adapter
+# MongoDB is external (MongoDB Atlas free tier) — you paste its URI when prompted.
+services:
+  - type: web
+    name: collabboard
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Paste your MongoDB Atlas connection string here (prompted on blueprint sync).
+      - key: MONGO_URI
+        sync: false
+      # Internal Redis connection string from the Key Value service below.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: collabboard-redis
+          property: connectionString
+      # Strong secrets generated + stored by Render (never in the repo).
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: SHARE_LINK_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 7d
+      # Same-origin deploy → Lax cookie over HTTPS.
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: COOKIE_SAMESITE
+        value: lax
+      # Set this to the service's own URL after first deploy (used for email links):
+      #   https://collabboard.onrender.com   (or whatever Render assigns)
+      - key: CLIENT_URL
+        sync: false
+      - key: EMAIL_FROM
+        value: CollabBoard <no-reply@collabboard.dev>
+
+  - type: keyvalue
+    name: collabboard-redis
+    plan: free
+    ipAllowList: [] # internal-only (no public access)
+    maxmemoryPolicy: noeviction

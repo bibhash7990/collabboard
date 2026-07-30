@@ -24,6 +24,9 @@ const schema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true'),
+  // 'lax' for same-origin (frontend served by this server); 'none' if the frontend
+  // is on a different domain (requires COOKIE_SECURE=true + HTTPS).
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 
   EMAIL_FROM: z.string().default('CollabBoard <no-reply@collabboard.dev>'),
   SMTP_HOST: z.string().optional(),
@@ -33,6 +36,10 @@ const schema = z.object({
 
   AI_SERVICE_URL: z.string().optional(),
   SHARE_LINK_SECRET: z.string().default('dev-share-secret-change-me'),
+
+  // When set, the server also serves the built web app from this directory
+  // (single-origin production deploy). Unset in local dev (Vite serves the SPA).
+  WEB_DIST: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

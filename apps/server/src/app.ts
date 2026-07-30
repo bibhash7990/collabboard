@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -26,6 +27,16 @@ export function createApp(): Express {
   });
 
   app.use('/api', apiLimiter, apiRouter);
+
+  // Single-origin production: serve the built SPA + client-side routing fallback.
+  if (env.WEB_DIST) {
+    const webDist = path.resolve(env.WEB_DIST);
+    app.use(express.static(webDist));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path === '/health') return next();
+      res.sendFile(path.join(webDist, 'index.html'));
+    });
+  }
 
   app.use(notFound);
   app.use(errorHandler);
