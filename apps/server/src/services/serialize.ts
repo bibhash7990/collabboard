@@ -136,8 +136,16 @@ export function toShareLink(s: any, token?: string): ShareLink & { token: string
   };
 }
 
+/** Byte length of a stored state, handling Node Buffer, BSON Binary, and typed arrays. */
+function byteLen(state: any): number {
+  if (state == null) return 0;
+  if (typeof state.length === 'number') return state.length; // Buffer / Uint8Array
+  if (typeof state.length === 'function') return state.length(); // BSON Binary
+  return state.byteLength ?? state.buffer?.length ?? 0;
+}
+
 export function toSnapshot(s: any): Snapshot {
-  const size = s.size ?? s.state?.length ?? s.state?.byteLength ?? 0;
+  const size = typeof s.size === 'number' ? s.size : byteLen(s.state);
   return {
     id: id(s),
     boardId: id(s.board),
