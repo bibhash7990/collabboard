@@ -1,5 +1,24 @@
-import 'dotenv/config';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import dotenv from 'dotenv';
 import { z } from 'zod';
+
+// Load the nearest .env walking up from the cwd, so it's found whether the process
+// runs from the repo root or a workspace dir (npm sets cwd to apps/server). In a
+// container no .env exists → env comes from the platform, which is exactly right.
+function findEnvFile(start: string): string | undefined {
+  let dir = start;
+  for (let i = 0; i < 6; i++) {
+    const candidate = join(dir, '.env');
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
+const envPath = findEnvFile(process.cwd());
+dotenv.config(envPath ? { path: envPath } : undefined);
 
 /**
  * Validated, typed environment. The process refuses to boot with a bad config

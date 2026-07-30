@@ -44,8 +44,19 @@ services:
       #   https://collabboard.onrender.com   (or whatever Render assigns)
       - key: CLIENT_URL
         sync: false
+      # ── Email (Brevo SMTP). HOST/PORT are safe to store; the rest are entered
+      #    on blueprint sync so no credentials live in the repo. EMAIL_FROM must be
+      #    a sender you've VERIFIED in Brevo (Senders & Domains).
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: '587'
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
       - key: EMAIL_FROM
-        value: CollabBoard <no-reply@collabboard.dev>
+        sync: false
 
   - type: keyvalue
     name: collabboard-redis
