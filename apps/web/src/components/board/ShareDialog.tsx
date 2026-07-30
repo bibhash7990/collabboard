@@ -109,7 +109,7 @@ export function ShareDialog({ open, onClose, boardId }: ShareDialogProps) {
                 className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-slate-700">{publicUrl(link.token)}</p>
+                  <p className="break-all text-xs text-slate-700">{publicUrl(link.token)}</p>
                   <p className="text-xs text-slate-400">
                     {link.expiresAt
                       ? `Expires ${format(new Date(link.expiresAt), 'PP')}`

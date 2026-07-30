@@ -8,19 +8,19 @@ import { ShareLink } from '../../models';
 import { randomToken, sha256 } from '../../utils/tokens';
 import { env } from '../../config/env';
 
-/** List a board's share links — editor+. The raw token is never stored, so it is '' here. */
+/** List a board's share links — editor+. Includes the token so links stay copyable. */
 export const listLinks = asyncHandler(async (req, res) => {
   const userId = req.user!.id;
   const boardId = req.params.id;
   await requireBoardRole(userId, boardId, 'editor');
   const links = await ShareLink.find({ board: boardId }).sort({ createdAt: -1 }).lean();
-  res.json({ links: links.map((link) => toShareLink(link)) });
+  res.json({ links: links.map((link) => toShareLink(link, link.token)) });
 });
 
 /**
- * Mint a read-only share link — editor+. The raw token is returned exactly once (in
- * the response + url); only its sha256 is persisted, so a leaked DB can't reconstruct
- * live links. `ttlDays` is capped by the schema; omit/null means no expiry.
+ * Mint a read-only share link — editor+. Stores the token (for re-copy by editors)
+ * plus its sha256 (the public-lookup index). `ttlDays` is capped by the schema;
+ * omit/null means no expiry.
  */
 export const createLink = asyncHandler(async (req, res) => {
   const userId = req.user!.id;
@@ -33,6 +33,7 @@ export const createLink = asyncHandler(async (req, res) => {
     typeof ttlDays === 'number' ? new Date(Date.now() + ttlDays * 86_400_000) : null;
   const link = await ShareLink.create({
     board: boardId,
+    token: raw,
     tokenHash: sha256(raw),
     createdBy: userId,
     expiresAt,
