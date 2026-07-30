@@ -137,13 +137,33 @@ export class BoardDocManager {
     actorId: string | null,
   ): Promise<number> {
     const state = await this.ensureLoaded(boardId);
+    Y.applyUpdate(state.docs[doc].ydoc, fromB64(updateB64));
+    return this.persistAndFanout(boardId, doc, updateB64, actorId);
+  }
+
+  /**
+   * Persist an update to the op log and fan it to sibling nodes — WITHOUT applying
+   * it to the local doc (callers that already mutated the doc, e.g. restore, use
+   * this directly to avoid a double-apply). Returns the new seq.
+   */
+  private async persistAndFanout(
+    boardId: string,
+    doc: DocType,
+    updateB64: string,
+    actorId: string | null,
+  ): Promise<number> {
+    const state = await this.ensureLoaded(boardId);
     const docState = state.docs[doc];
-    const update = fromB64(updateB64);
-    Y.applyUpdate(docState.ydoc, update);
     const seq = ++docState.seq;
     docState.opsSinceSnapshot += 1;
 
-    await BoardOp.create({ board: boardId, doc, update: Buffer.from(update), seq, actor: actorId });
+    await BoardOp.create({
+      board: boardId,
+      doc,
+      update: Buffer.from(fromB64(updateB64)),
+      seq,
+      actor: actorId,
+    });
 
     const redis = getRedisClients();
     if (redis) {
@@ -229,26 +249,40 @@ export class BoardDocManager {
     return note?.text ?? '';
   }
 
-  /** Replace a doc's contents with a snapshot's state (restore-to-snapshot). */
+  /**
+   * Restore a doc to a stored snapshot. A plain Yjs merge is additive — it can add
+   * missing content but can't *remove* anything created after the snapshot, so a
+   * naive diff would silently fail to revert. Instead we reconcile the live doc's
+   * content to exactly match the snapshot (deleting newer keys, resetting values)
+   * inside one transaction, then persist + broadcast the resulting delta so every
+   * client and node converges. Returns the delta (base64) for the caller to emit.
+   */
   async restoreSnapshot(
     boardId: string,
-    snapshotDoc: {
-      doc: DocType;
-      state: Buffer;
-    },
+    snapshotDoc: { doc: DocType; state: Buffer },
     restoredBy: string,
   ): Promise<string> {
     const state = await this.ensureLoaded(boardId);
-    const docState = state.docs[snapshotDoc.doc];
-    // Compute a diff update that transforms the current doc into the snapshot state,
-    // so all connected clients converge without a hard reload.
+    const live = state.docs[snapshotDoc.doc].ydoc;
     const target = new Y.Doc();
     Y.applyUpdate(target, bufToU8(snapshotDoc.state));
-    const diff = Y.encodeStateAsUpdate(target, Y.encodeStateVector(docState.ydoc));
-    const diffB64 = toB64(diff);
-    // Reuse the normal update path so it persists + fans out to every client/node.
-    await this.applyLocalUpdate(boardId, snapshotDoc.doc, diffB64, restoredBy);
-    return diffB64;
+
+    const before = Y.encodeStateVector(live);
+    live.transact(() => {
+      if (snapshotDoc.doc === 'canvas') {
+        reconcileMap(live.getMap('elements'), target.getMap('elements'));
+      } else {
+        reconcileXmlFragment(live.getXmlFragment('default'), target.getXmlFragment('default'));
+      }
+    }, 'restore');
+    const delta = Y.encodeStateAsUpdate(live, before);
+    target.destroy();
+
+    const deltaB64 = toB64(delta);
+    // Doc already mutated above → persist + fan out without re-applying.
+    await this.persistAndFanout(boardId, snapshotDoc.doc, deltaB64, restoredBy);
+    if (snapshotDoc.doc === 'notes') await this.persistNotesText(boardId, live);
+    return deltaB64;
   }
 
   private async unload(boardId: string): Promise<void> {
@@ -272,4 +306,43 @@ export class BoardDocManager {
       await this.createSnapshot(boardId, 'notes', { auto: true }).catch(() => undefined);
     }
   }
+}
+
+/** Make `live` map exactly match `snap`: drop keys not in snap, (re)set snap values. */
+function reconcileMap(live: Y.Map<unknown>, snap: Y.Map<unknown>): void {
+  for (const key of [...live.keys()]) {
+    if (!snap.has(key)) live.delete(key);
+  }
+  for (const key of [...snap.keys()]) {
+    live.set(key, snap.get(key));
+  }
+}
+
+/** Deep-clone a Yjs XML node into fresh nodes (nodes can't be moved between docs). */
+function cloneXmlNode(node: Y.XmlElement | Y.XmlText | Y.XmlHook): Y.XmlElement | Y.XmlText {
+  if (node instanceof Y.XmlText) {
+    const text = new Y.XmlText();
+    text.applyDelta(node.toDelta());
+    return text;
+  }
+  if (node instanceof Y.XmlElement) {
+    const el = new Y.XmlElement(node.nodeName);
+    const attrs = node.getAttributes();
+    for (const key of Object.keys(attrs)) el.setAttribute(key, String(attrs[key]));
+    el.insert(
+      0,
+      node.toArray().map((child) => cloneXmlNode(child as Y.XmlElement | Y.XmlText)),
+    );
+    return el;
+  }
+  return new Y.XmlText();
+}
+
+/** Replace `live` fragment content with a deep clone of the snapshot fragment. */
+function reconcileXmlFragment(live: Y.XmlFragment, snap: Y.XmlFragment): void {
+  if (live.length > 0) live.delete(0, live.length);
+  live.insert(
+    0,
+    snap.toArray().map((n) => cloneXmlNode(n as Y.XmlElement | Y.XmlText)),
+  );
 }

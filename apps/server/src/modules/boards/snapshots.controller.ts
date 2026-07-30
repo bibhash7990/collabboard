@@ -1,11 +1,13 @@
 import { Types } from 'mongoose';
-import type { CreateSnapshotRequest, RestoreSnapshotRequest } from '@collabboard/shared';
+import { SOCKET_EVENTS, type CreateSnapshotRequest, type RestoreSnapshotRequest } from '@collabboard/shared';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { ApiError } from '../../utils/ApiError';
 import { requireBoardRole } from '../../services/access';
 import { toSnapshot } from '../../services/serialize';
 import { Snapshot } from '../../models';
 import { boardDocs } from '../../realtime/manager';
+import { getIo } from '../../realtime/gateway';
+import { boardRoom } from '../../realtime/socketTypes';
 
 /** Version history for a board — viewer+. Newest first, both sub-documents. */
 export const listSnapshots = asyncHandler(async (req, res) => {
@@ -52,6 +54,15 @@ export const restoreSnapshot = asyncHandler(async (req, res) => {
   const snap = await Snapshot.findOne({ _id: snapshotId, board: boardId });
   if (!snap) throw ApiError.notFound('Snapshot not found', 'SNAPSHOT_NOT_FOUND');
 
-  await boardDocs.restoreSnapshot(boardId, { doc: snap.doc, state: snap.state }, userId);
-  res.status(200).json({ ok: true });
+  await boardDocs.acquire(boardId);
+  try {
+    const update = await boardDocs.restoreSnapshot(boardId, { doc: snap.doc, state: snap.state }, userId);
+    // Fan the reconciling delta out to every connected client (adapter spans nodes).
+    getIo()
+      ?.to(boardRoom(boardId))
+      .emit(SOCKET_EVENTS.YJS_BROADCAST, { boardId, doc: snap.doc, update });
+    res.status(200).json({ ok: true });
+  } finally {
+    boardDocs.release(boardId);
+  }
 });
