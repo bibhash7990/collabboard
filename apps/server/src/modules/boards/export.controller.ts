@@ -66,14 +66,24 @@ export const exportPdf = asyncHandler(async (req, res) => {
   for (const m of members) doc.text(`• ${m.name}${m.email ? ` <${m.email}>` : ''} — ${m.role}`);
   doc.moveDown();
 
-  // Optional canvas snapshot
+  // Optional canvas snapshot. NOTE: pdfkit's `align`/`valign` options make image()
+  // treat the image as absolutely positioned and NOT advance the text cursor, which
+  // makes following sections overlap it. So we place it at an explicit (x, y) and
+  // move the cursor firmly below the reserved image box ourselves.
   if (canvasImage) {
     doc.fontSize(14).fillColor('#111827').text('Board snapshot');
-    doc.moveDown(0.25);
+    doc.moveDown(0.5);
+    const boxTop = doc.y;
+    const boxWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const boxHeight = 300;
     try {
-      doc.image(canvasImage, { fit: [500, 320], align: 'center' });
-      doc.moveDown();
+      doc.image(canvasImage, doc.page.margins.left, boxTop, {
+        fit: [boxWidth, boxHeight],
+        align: 'center',
+      });
+      doc.y = boxTop + boxHeight + 16; // reserve the full box → no overlap with Notes
     } catch {
+      doc.y = boxTop;
       doc.fontSize(10).fillColor('#b91c1c').text('(Canvas image could not be embedded.)');
       doc.moveDown();
     }
@@ -100,7 +110,8 @@ export const exportPdf = asyncHandler(async (req, res) => {
     ]
       .filter(Boolean)
       .join(' · ');
-    doc.text(`☐ ${it.text}${meta ? `  (${meta})` : ''}`);
+    // Plain ASCII box — the default PDF font has no ☐ (U+2610) glyph.
+    doc.text(`[ ]  ${it.text}${meta ? `  (${meta})` : ''}`);
   }
 
   doc.end();
