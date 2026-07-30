@@ -1,0 +1,47 @@
+import 'dotenv/config';
+import { z } from 'zod';
+
+/**
+ * Validated, typed environment. The process refuses to boot with a bad config
+ * rather than failing mysteriously at the first request.
+ */
+const schema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().default(4000),
+  CLIENT_URL: z.string().default('http://localhost:5173'),
+
+  MONGO_URI: z.string().default('mongodb://localhost:27017/collabboard'),
+  REDIS_URL: z.string().optional(),
+
+  JWT_ACCESS_SECRET: z.string().min(16).default('dev-access-secret-change-me-please-0000'),
+  JWT_REFRESH_SECRET: z.string().min(16).default('dev-refresh-secret-change-me-please-000'),
+  JWT_ACCESS_TTL: z.string().default('15m'),
+  JWT_REFRESH_TTL: z.string().default('7d'),
+
+  COOKIE_NAME: z.string().default('cb_refresh'),
+  COOKIE_DOMAIN: z.string().optional(),
+  COOKIE_SECURE: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
+  EMAIL_FROM: z.string().default('CollabBoard <no-reply@collabboard.dev>'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+
+  AI_SERVICE_URL: z.string().optional(),
+  SHARE_LINK_SECRET: z.string().default('dev-share-secret-change-me'),
+});
+
+const parsed = schema.safeParse(process.env);
+if (!parsed.success) {
+  // eslint-disable-next-line no-console
+  console.error('❌ Invalid environment configuration:', parsed.error.flatten().fieldErrors);
+  process.exit(1);
+}
+
+export const env = parsed.data;
+export const isProd = env.NODE_ENV === 'production';
+export const isTest = env.NODE_ENV === 'test';
