@@ -26,6 +26,7 @@ interface BoardListRow {
   starred: boolean;
   lastOpenedAt: Date | null;
   board: Record<string, unknown>;
+  owner?: Record<string, unknown>;
 }
 
 /**
@@ -62,16 +63,15 @@ export const list = asyncHandler(async (req, res) => {
     { $match: match },
     { $lookup: { from: 'boards', localField: 'board', foreignField: '_id', as: 'board' } },
     { $unwind: '$board' },
+    // Owner is a single indexed _id join — kept so the card can show the owner name
+    // and so `q` can search by owner as well as title.
+    { $lookup: { from: 'users', localField: 'board.owner', foreignField: '_id', as: 'owner' } },
+    { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
   ];
 
-  // Owner join + name search only when `q` is set, so the common list stays lean.
   if (q) {
     const rx = new RegExp(escapeRegex(q), 'i');
-    pipeline.push(
-      { $lookup: { from: 'users', localField: 'board.owner', foreignField: '_id', as: 'owner' } },
-      { $unwind: '$owner' },
-      { $match: { $or: [{ 'board.title': rx }, { 'owner.name': rx }] } },
-    );
+    pipeline.push({ $match: { $or: [{ 'board.title': rx }, { 'owner.name': rx }] } });
   }
 
   const sortMap: Record<BoardSort, Record<string, 1 | -1>> = {
@@ -98,9 +98,14 @@ export const list = asyncHandler(async (req, res) => {
 
   const total = facet?.total[0]?.count ?? 0;
   const rows = facet?.page ?? [];
-  // List responses are member-less by design; per-user metadata rides on the row.
+  // List rows carry only the owner (not every member) plus the caller's metadata.
   const boards = rows.map((row) =>
-    toBoard(row.board, { myRole: row.role, starred: row.starred, lastOpenedAt: row.lastOpenedAt }),
+    toBoard(row.board, {
+      members: row.owner ? [{ user: row.owner, role: 'owner' as Role }] : [],
+      myRole: row.role,
+      starred: row.starred,
+      lastOpenedAt: row.lastOpenedAt,
+    }),
   );
 
   res.json({ boards, total, page, limit });
