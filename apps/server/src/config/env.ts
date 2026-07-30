@@ -59,6 +59,10 @@ const schema = z.object({
   // When set, the server also serves the built web app from this directory
   // (single-origin production deploy). Unset in local dev (Vite serves the SPA).
   WEB_DIST: z.string().optional(),
+
+  // Comma-separated DNS servers (e.g. "8.8.8.8,1.1.1.1") for networks whose default
+  // resolver can't perform the SRV lookup that mongodb+srv:// requires.
+  DNS_SERVERS: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
