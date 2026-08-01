@@ -50,6 +50,7 @@ const schema = z.object({
   EMAIL_FROM: z.string().default('CollabBoard <no-reply@collabboard.dev>'),
   // Resend HTTP API (preferred — works on Render free tier, no SMTP port restrictions)
   RESEND_API_KEY: z.string().optional(),
+  SENDGRID_API_KEY: z.string().optional(),
   // Legacy SMTP fallback (only works when the host allows outbound SMTP ports)
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),

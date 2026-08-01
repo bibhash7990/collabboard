@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
+import sgMail from '@sendgrid/mail';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 
@@ -14,10 +15,19 @@ import { logger } from '../config/logger';
 
 /* ── 1. Resend HTTP client ────────────────────────────────────────────── */
 let resendClient: Resend | null = null;
+let sendgridInitialized = false;
 function getResendClient(): Resend | null {
   if (!env.RESEND_API_KEY) return null;
   if (!resendClient) resendClient = new Resend(env.RESEND_API_KEY);
   return resendClient;
+}
+
+function initSendGrid() {
+  if (env.SENDGRID_API_KEY && !sendgridInitialized) {
+    sgMail.setApiKey(env.SENDGRID_API_KEY);
+    sendgridInitialized = true;
+    logger.debug('SendGrid initialized');
+  }
 }
 
 /* ── 2. SMTP transporter (legacy) ─────────────────────────────────────── */
@@ -63,17 +73,37 @@ export async function sendMail(mail: Mail): Promise<void> {
         text: mail.text,
       });
       if (error) {
-        // Resend returned an API-level error (e.g. unverified domain, invalid key)
         logger.error({ error, to: mail.to, subject: mail.subject, text: mail.text },
-          '📧 [EMAIL FAILED via Resend – falling back to log]');
+          '📧 [EMAIL FAILED via Resend – attempting SendGrid fallback]');
+        // fall through to SendGrid fallback below
       } else {
         logger.info({ to: mail.to, subject: mail.subject }, '📧 [EMAIL SENT via Resend]');
+        return;
       }
     } catch (err) {
       logger.error({ err, to: mail.to, subject: mail.subject, text: mail.text },
-        '📧 [EMAIL FAILED via Resend – falling back to log]');
+        '📧 [EMAIL EXCEPTION via Resend – attempting SendGrid fallback]');
+      // continue to fallback
     }
-    return;
+    // continue to next strategy (SendGrid)
+  }
+
+  // ── Strategy 1b: SendGrid fallback (HTTPS)
+  if (env.SENDGRID_API_KEY) {
+    initSendGrid();
+    try {
+      await sgMail.send({
+        from: fromAddress,
+        to: mail.to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      });
+      logger.info({ to: mail.to, subject: mail.subject }, '📧 [EMAIL SENT via SendGrid]');
+      return;
+    } catch (sgErr) {
+      logger.error({ sgErr, to: mail.to, subject: mail.subject }, '📧 [EMAIL FAILED via SendGrid – falling back to log]');
+    }
   }
 
   /* ── Strategy 2: SMTP (nodemailer) ──────────────────────────────────── */
@@ -83,8 +113,6 @@ export async function sendMail(mail: Mail): Promise<void> {
       await tx.sendMail({ from: fromAddress, ...mail });
       logger.info({ to: mail.to, subject: mail.subject }, '📧 [EMAIL SENT via SMTP]');
     } catch (err) {
-      // SMTP failure (blocked port, wrong credentials, etc.)
-      // Never crash the registration request — just log the link.
       logger.error({ err, to: mail.to, subject: mail.subject, text: mail.text },
         '📧 [EMAIL FAILED via SMTP – falling back to log]');
     }
