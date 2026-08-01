@@ -46,12 +46,17 @@ export interface Mail {
 }
 
 export async function sendMail(mail: Mail): Promise<void> {
+  // Ensure the FROM address includes a display name – Resend requires the format "Name <address>".
+  const fromAddress = env.EMAIL_FROM.includes('<') ? env.EMAIL_FROM : `CollabBoard <${env.EMAIL_FROM}>`;
+  logger.debug({ fromAddress }, '🔍 [DEBUG FROM address]');
+
   /* ── Strategy 1: Resend HTTP API ─────────────────────────────────────── */
   const resend = getResendClient();
+  logger.debug({ hasResendClient: !!resend }, '🔍 [DEBUG Resend client presence]');
   if (resend) {
     try {
       const { error } = await resend.emails.send({
-        from: env.EMAIL_FROM,
+        from: fromAddress,
         to: mail.to,
         subject: mail.subject,
         html: mail.html,
@@ -75,7 +80,7 @@ export async function sendMail(mail: Mail): Promise<void> {
   const tx = getTransporter();
   if (tx) {
     try {
-      await tx.sendMail({ from: env.EMAIL_FROM, ...mail });
+      await tx.sendMail({ from: fromAddress, ...mail });
       logger.info({ to: mail.to, subject: mail.subject }, '📧 [EMAIL SENT via SMTP]');
     } catch (err) {
       // SMTP failure (blocked port, wrong credentials, etc.)
