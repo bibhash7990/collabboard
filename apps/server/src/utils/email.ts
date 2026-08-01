@@ -12,9 +12,14 @@ let transporter: nodemailer.Transporter | null = null;
 function getTransporter(): nodemailer.Transporter | null {
   if (!env.SMTP_HOST) return null;
   if (!transporter) {
+    const port = env.SMTP_PORT ?? 587;
+    // Port 465 = implicit TLS (secure:true). Port 587/25 = STARTTLS (secure:false).
+    // Resend uses port 465; Gmail uses port 587. Auto-detect so both work.
+    const secure = port === 465;
     transporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
-      port: env.SMTP_PORT ?? 587,
+      port,
+      secure,
       auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
     });
   }
