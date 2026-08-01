@@ -34,7 +34,16 @@ export async function sendMail(mail: Mail): Promise<void> {
     logger.info({ to: mail.to, subject: mail.subject, text: mail.text }, '📧 [DEV EMAIL]');
     return;
   }
-  await tx.sendMail({ from: env.EMAIL_FROM, ...mail });
+  try {
+    await tx.sendMail({ from: env.EMAIL_FROM, ...mail });
+    logger.info({ to: mail.to, subject: mail.subject }, '📧 [EMAIL SENT]');
+  } catch (err) {
+    // SMTP failure (e.g. Gmail blocking the server IP, wrong credentials, etc.)
+    // Log the real error and the plain-text link so the verification URL is always
+    // visible in the server logs, but do NOT re-throw — a mail delivery failure
+    // must never crash the registration/invite request for the user.
+    logger.error({ err, to: mail.to, subject: mail.subject, text: mail.text }, '📧 [EMAIL FAILED – falling back to log]');
+  }
 }
 
 export function verificationEmail(name: string, link: string): Mail {
